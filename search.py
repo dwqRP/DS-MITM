@@ -4,6 +4,7 @@ import sys
 
 
 SR = [0, 1, 2, 3, 7, 4, 5, 6, 10, 11, 8, 9, 13, 14, 15, 12]
+PT = [9, 15, 8, 13, 10, 14, 12, 11, 0, 1, 2, 3, 4, 5, 6, 7]
 
 
 def Evaluate_objective(model):
@@ -16,23 +17,26 @@ def Evaluate_objective(model):
     return val
 
 
-def Search_attacks(r_dist, r_in, r_out):
+def Search_ds_mitm_attacks(r_dist, r_in, r_out):
     SKINNY = Model("SKINNY")
-    state_X_l = {} # VAR X
+    state_X_l = {}  # VAR X
     state_X_nl = {}
-    state_Y_l = {} # VAR Y
+    state_Y_l = {}  # VAR Y
     state_Y_nl = {}
-    state_Z = {} # VAR Z
-    con_1 = {} # cipher-specific constraints
+    state_Z = {}  # VAR Z
+    con_1 = {}  # cipher-specific constraints
     con_2 = {}
     Deg = LinExpr()
     Con = LinExpr()
-    state_W_l = {} # VAR W
+    Key = LinExpr()
+    Obj = SKINNY.addVar(vtype=GRB.INTEGER, name="Obj")
+    state_W_l = {}  # VAR W
     state_W_nl = {}
-    state_M_l = {} # VAR M
+    state_M_l = {}  # VAR M
     state_M_nl = {}
-    state_O_l = {} # VAR O
+    state_O_l = {}  # VAR O
     state_O_nl = {}
+    Rou = {}
 
     # VAR X - forward differential
     state_X_l[0] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_X_l_0")
@@ -183,19 +187,22 @@ def Search_attacks(r_dist, r_in, r_out):
             Con.add(con_1[rd][i])
             Con.add(con_2[rd][i])
 
-    # Reasonable
-    SKINNY.addConstr(Deg - Con <= 48)
-    
     # VAR W - forward determination
     state_W_l[0] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_W_l_0")
     SKINNY.addConstrs(state_W_l[0][i] == state_Z[r_dist][i] for i in range(16))
     for rd in range(r_out):
-        state_W_nl[rd] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_W_nl_" + str(rd))
-        state_W_l[rd + 1] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_W_l_" + str(rd + 1))
+        state_W_nl[rd] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_W_nl_" + str(rd)
+        )
+        state_W_l[rd + 1] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_W_l_" + str(rd + 1)
+        )
         # SR
         SKINNY.addConstrs(state_W_l[rd][SR[i]] == state_W_nl[rd][i] for i in range(16))
         # MC - COL1
-        SKINNY.addConstrs(state_W_l[rd + 1][i] == state_W_nl[rd][i + 12] for i in range(4))
+        SKINNY.addConstrs(
+            state_W_l[rd + 1][i] == state_W_nl[rd][i + 12] for i in range(4)
+        )
         # MC - COL2
         SKINNY.addConstrs(
             state_W_l[rd + 1][i + 4] >= state_W_nl[rd][i] for i in range(4)
@@ -208,13 +215,13 @@ def Search_attacks(r_dist, r_in, r_out):
         )
         SKINNY.addConstrs(
             state_W_l[rd + 1][i + 4]
-            <= state_W_nl[rd][i]
-            + state_W_nl[rd][i + 4]
-            + state_W_nl[rd][i + 8]
+            <= state_W_nl[rd][i] + state_W_nl[rd][i + 4] + state_W_nl[rd][i + 8]
             for i in range(4)
         )
         # MC - COL3
-        SKINNY.addConstrs(state_W_l[rd + 1][i + 8] == state_W_nl[rd][i + 4] for i in range(4))
+        SKINNY.addConstrs(
+            state_W_l[rd + 1][i + 8] == state_W_nl[rd][i + 4] for i in range(4)
+        )
         # MC - COL4
         SKINNY.addConstrs(
             state_W_l[rd + 1][i + 12] >= state_W_nl[rd][i + 4] for i in range(4)
@@ -227,24 +234,36 @@ def Search_attacks(r_dist, r_in, r_out):
         )
         SKINNY.addConstrs(
             state_W_l[rd + 1][i + 12]
-            <= state_W_nl[rd][i + 4]
-            + state_W_nl[rd][i + 8]
-            + state_W_nl[rd][i + 12]
+            <= state_W_nl[rd][i + 4] + state_W_nl[rd][i + 8] + state_W_nl[rd][i + 12]
             for i in range(4)
         )
-        
+
     # VAR M - backward differential
-    state_M_l[r_in] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_W_l_" + str(r_in))
+    state_M_l[r_in] = SKINNY.addVars(
+        16, vtype=GRB.BINARY, name="state_W_l_" + str(r_in)
+    )
     SKINNY.addConstrs(state_M_l[r_in][i] == state_Z[0][i] for i in range(16))
     for rd in range(r_in - 1, -1, -1):
-        state_M_nl[rd] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_M_nl_" + str(rd))
-        state_M_l[rd] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_M_l_" + str(rd))
+        state_M_nl[rd] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_M_nl_" + str(rd)
+        )
+        state_M_l[rd] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_M_l_" + str(rd)
+        )
         # MC - COL1
-        SKINNY.addConstrs(state_M_nl[rd][i] == state_M_l[rd + 1][i + 4] for i in range(4))
+        SKINNY.addConstrs(
+            state_M_nl[rd][i] == state_M_l[rd + 1][i + 4] for i in range(4)
+        )
         # MC - COL2
-        SKINNY.addConstrs(state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 4] for i in range(4))
-        SKINNY.addConstrs(state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 8] for i in range(4))
-        SKINNY.addConstrs(state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 12] for i in range(4))
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 4] for i in range(4)
+        )
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 8] for i in range(4)
+        )
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 4] >= state_M_l[rd + 1][i + 12] for i in range(4)
+        )
         SKINNY.addConstrs(
             state_M_nl[rd][i + 4]
             <= state_M_l[rd + 1][i + 4]
@@ -253,32 +272,45 @@ def Search_attacks(r_dist, r_in, r_out):
             for i in range(4)
         )
         # MC - COL3
-        SKINNY.addConstrs(state_M_nl[rd][i + 8] >= state_M_l[rd + 1][i + 4] for i in range(4))
-        SKINNY.addConstrs(state_M_nl[rd][i + 8] >= state_M_l[rd + 1][i + 12] for i in range(4))
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 8] >= state_M_l[rd + 1][i + 4] for i in range(4)
+        )
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 8] >= state_M_l[rd + 1][i + 12] for i in range(4)
+        )
         SKINNY.addConstrs(
             state_M_nl[rd][i + 8]
-            <= state_M_l[rd + 1][i + 4]
-            + state_M_l[rd + 1][i + 12]
+            <= state_M_l[rd + 1][i + 4] + state_M_l[rd + 1][i + 12]
             for i in range(4)
         )
         # MC - COL4
-        SKINNY.addConstrs(state_M_nl[rd][i + 12] >= state_M_l[rd + 1][i] for i in range(4))
-        SKINNY.addConstrs(state_M_nl[rd][i + 12] >= state_M_l[rd + 1][i + 12] for i in range(4))
         SKINNY.addConstrs(
-            state_M_nl[rd][i + 12]
-            <= state_M_l[rd + 1][i]
-            + state_M_l[rd + 1][i + 12]
+            state_M_nl[rd][i + 12] >= state_M_l[rd + 1][i] for i in range(4)
+        )
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 12] >= state_M_l[rd + 1][i + 12] for i in range(4)
+        )
+        SKINNY.addConstrs(
+            state_M_nl[rd][i + 12] <= state_M_l[rd + 1][i] + state_M_l[rd + 1][i + 12]
             for i in range(4)
         )
         # SR
         SKINNY.addConstrs(state_M_l[rd][SR[i]] == state_M_nl[rd][i] for i in range(16))
-        
+
     # VAR O - backward determination
-    state_O_l[r_in - 1] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_O_l_" + str(r_in - 1))
-    SKINNY.addConstrs(state_O_l[r_in - 1][i] == state_M_l[r_in - 1][i] for i in range(16))
+    state_O_l[r_in - 1] = SKINNY.addVars(
+        16, vtype=GRB.BINARY, name="state_O_l_" + str(r_in - 1)
+    )
+    SKINNY.addConstrs(
+        state_O_l[r_in - 1][i] == state_M_l[r_in - 1][i] for i in range(16)
+    )
     for rd in range(r_in - 2, -1, -1):
-        state_O_nl[rd] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_O_nl_" + str(rd))
-        state_O_l[rd] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_O_l_" + str(rd))
+        state_O_nl[rd] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_O_nl_" + str(rd)
+        )
+        state_O_l[rd] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_O_l_" + str(rd)
+        )
         # MC - COL1
         SKINNY.addConstrs(state_O_nl[rd][i] >= state_O_l[rd + 1][i] for i in range(4))
         SKINNY.addConstrs(
@@ -322,23 +354,65 @@ def Search_attacks(r_dist, r_in, r_out):
         # SR & VAR M
         SKINNY.addConstrs(state_O_l[rd][i] >= state_M_l[rd][i] for i in range(16))
         SKINNY.addConstrs(state_O_l[rd][SR[i]] >= state_O_nl[rd][i] for i in range(16))
-        SKINNY.addConstrs(state_O_l[rd][SR[i]] <= state_M_l[rd][SR[i]] + state_O_nl[rd][i] for i in range(16))
-        
+        SKINNY.addConstrs(
+            state_O_l[rd][SR[i]] <= state_M_l[rd][SR[i]] + state_O_nl[rd][i]
+            for i in range(16)
+        )
+
+    # Key-Bridging
+
+    for i in range(16):
+        Rou[i] = LinExpr()
+
+    tmp = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    for rd in range(r_in + r_dist + r_out):
+        if rd < r_in - 1:
+            for i in range(8):
+                Rou[tmp[SR[i]]].add(state_O_nl[rd][i])
+        if rd > r_in + r_dist:
+            for i in range(8):
+                Rou[tmp[i]].add(state_W_l[rd - r_in - r_dist][i])
+        for i in range(16):
+            tmp[i] = PT[tmp[i]]
+
+    # SKINNY.update()
+    # for i in range(16):
+    #     print(Rou[i])
+
+    alpha = SKINNY.addVars(16, vtype=GRB.BINARY, name="alpha")
+    beta = SKINNY.addVars(16, vtype=GRB.BINARY, name="beta")
+    gamma = SKINNY.addVars(16, vtype=GRB.BINARY, name="gamma")
+    for i in range(16):
+        SKINNY.addGenConstrIndicator(alpha[i], 1, Rou[i] >= 3)
+        SKINNY.addGenConstrIndicator(alpha[i], 0, Rou[i] <= 2)
+        SKINNY.addGenConstrIndicator(beta[i], 1, Rou[i] >= 2)
+        SKINNY.addGenConstrIndicator(beta[i], 0, Rou[i] <= 1)
+        SKINNY.addGenConstrIndicator(gamma[i], 1, Rou[i] >= 1)
+        SKINNY.addGenConstrIndicator(gamma[i], 0, Rou[i] == 0)
+        Key.add(alpha[i])
+        Key.add(beta[i])
+        Key.add(gamma[i])
+
+    SKINNY.addConstr(Obj >= Deg - Con)
+    SKINNY.addConstr(Obj >= Key)
+
+    # Reasonable
+    SKINNY.addConstr(Obj <= 48)
 
     # Objective function
-    SKINNY.addConstr(state_Z[0][14] == 1) # To be deleted!!!
-    SKINNY.setObjective(Deg - Con, GRB.MINIMIZE)
+    # SKINNY.addConstr(state_Z[0][14] == 1)  # To be deleted!!!
+    SKINNY.setObjective(Obj, GRB.MINIMIZE)
 
     # Start solver
-    SKINNY.setParam("OutputFlag", 0)
+    # SKINNY.setParam("OutputFlag", 0)
     SKINNY.Params.PoolSearchMode = 2
-    SKINNY.Params.PoolSolutions = 1  # 84 sols
-    SKINNY.Params.PoolGap = 8.0
+    SKINNY.Params.PoolSolutions = 3  # 84 sols
+    SKINNY.Params.PoolGap = 3.0
     # SKINNY.setParam("IntFeasTol", 1e-9)
     SKINNY.optimize()
     print("Model Status:", SKINNY.Status)
     if SKINNY.Status == 2:
-        print("Min_Deg: %g" % SKINNY.ObjVal)
+        print("Min_Obj: %g" % SKINNY.ObjVal)
 
         # All solutions
         for k in range(SKINNY.SolCount):
@@ -430,7 +504,27 @@ def Search_attacks(r_dist, r_in, r_out):
             #         round(con_2[rd][2].Xn),
             #         round(con_2[rd][3].Xn),
             #     )
-            
+
+            # print("---------- Var O ----------")
+            # for rd in range(r_in):
+            #     print("O_linear[", rd, "]")
+            #     for i in range(4):
+            #         print(
+            #             round(state_O_l[rd][4 * i].Xn),
+            #             round(state_O_l[rd][4 * i + 1].Xn),
+            #             round(state_O_l[rd][4 * i + 2].Xn),
+            #             round(state_O_l[rd][4 * i + 3].Xn),
+            #         )
+            #     if rd < r_in - 1:
+            #         print("O_non_linear[", rd, "]")
+            #         for i in range(4):
+            #             print(
+            #                 round(state_O_nl[rd][4 * i].Xn),
+            #                 round(state_O_nl[rd][4 * i + 1].Xn),
+            #                 round(state_O_nl[rd][4 * i + 2].Xn),
+            #                 round(state_O_nl[rd][4 * i + 3].Xn),
+            #             )
+
             # print("---------- Var W ----------")
             # for rd in range(r_out + 1):
             #     print("W_linear[", rd, "]")
@@ -450,7 +544,7 @@ def Search_attacks(r_dist, r_in, r_out):
             #                 round(state_W_nl[rd][4 * i + 2].Xn),
             #                 round(state_W_nl[rd][4 * i + 3].Xn),
             #             )
-            
+
             # print("---------- Var M ----------")
             # for rd in range(r_in + 1):
             #     print("M_linear[", rd, "]")
@@ -470,27 +564,7 @@ def Search_attacks(r_dist, r_in, r_out):
             #                 round(state_M_nl[rd][4 * i + 2].Xn),
             #                 round(state_M_nl[rd][4 * i + 3].Xn),
             #             )
-            
-            print("---------- Var O ----------")
-            for rd in range(r_in):
-                print("O_linear[", rd, "]")
-                for i in range(4):
-                    print(
-                        round(state_O_l[rd][4 * i].Xn),
-                        round(state_O_l[rd][4 * i + 1].Xn),
-                        round(state_O_l[rd][4 * i + 2].Xn),
-                        round(state_O_l[rd][4 * i + 3].Xn),
-                    )
-                if rd < r_in - 1:
-                    print("O_non_linear[", rd, "]")
-                    for i in range(4):
-                        print(
-                            round(state_O_nl[rd][4 * i].Xn),
-                            round(state_O_nl[rd][4 * i + 1].Xn),
-                            round(state_O_nl[rd][4 * i + 2].Xn),
-                            round(state_O_nl[rd][4 * i + 3].Xn),
-                        )
 
 
 if __name__ == "__main__":
-    Search_attacks(10, 3, 9)
+    Search_ds_mitm_attacks(10, 3, 9)
