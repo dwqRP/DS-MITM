@@ -7,28 +7,30 @@ SR = [0, 1, 2, 3, 7, 4, 5, 6, 10, 11, 8, 9, 13, 14, 15, 12]
 PT = [9, 15, 8, 13, 10, 14, 12, 11, 0, 1, 2, 3, 4, 5, 6, 7]
 
 
-def Evaluate_objective(model):
-    expr = model.getObjective()
+def Evaluate_expr(model, le):
     val = 0
-    for i in range(expr.size()):
-        coeff = expr.getCoeff(i)
-        var = expr.getVar(i)
+    for i in range(le.size()):
+        coeff = le.getCoeff(i)
+        var   = le.getVar(i)
         val += coeff * round(var.Xn)
     return val
 
 
-def Search_ds_mitm_attacks(r_dist, r_in, r_out):
+def Search_ds_mitm_attacks(r_dist, r_in, r_out, mx_deg, mx_key, mx_data):
     SKINNY = Model("SKINNY")
     state_X_l = {}  # VAR X
     state_X_nl = {}
     state_Y_l = {}  # VAR Y
     state_Y_nl = {}
     state_Z = {}  # VAR Z
-    con_1 = {}  # cipher-specific constraints
+    con_1 = {}  # cipher-specific constraints (non-full key addition)
     con_2 = {}
+    con_3 = {}
+    con_4 = {}
     Deg = LinExpr()
     Con = LinExpr()
     Key = LinExpr()
+    Data = LinExpr()
     Obj = SKINNY.addVar(vtype=GRB.INTEGER, name="Obj")
     state_W_l = {}  # VAR W
     state_W_nl = {}
@@ -159,10 +161,12 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
     SKINNY.addConstr(quicksum(state_X_l[0][i] for i in range(16)) >= 1)
     SKINNY.addConstr(quicksum(state_Y_l[r_dist][i] for i in range(16)) >= 1)
 
-    # Specific condition
+    # Specific condition (Non-full key addition)
     for rd in range(r_dist):
         con_1[rd] = SKINNY.addVars(4, vtype=GRB.BINARY, name="con_1_" + str(rd))
         con_2[rd] = SKINNY.addVars(4, vtype=GRB.BINARY, name="con_2_" + str(rd))
+        con_3[rd] = SKINNY.addVars(4, vtype=GRB.BINARY, name="con_3_" + str(rd))
+        con_4[rd] = SKINNY.addVars(4, vtype=GRB.BINARY, name="con_4_" + str(rd))
         for i in range(4):
             SKINNY.addConstr(
                 state_Z[rd + 1][i + 4]
@@ -184,8 +188,26 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
                 state_Z[rd + 1][i] + state_Z[rd + 1][i + 12] + state_Z[rd][SR[i + 12]]
                 <= 2 + con_2[rd][i]
             )
+            SKINNY.addConstr(
+                state_Z[rd + 1][i]
+                + state_Z[rd + 1][i + 4]
+                + state_Z[rd][SR[i + 8]]
+                + state_Z[rd][SR[i + 12]]
+                >= 4 * con_3[rd][i]
+            )
+            SKINNY.addConstr(
+                state_Z[rd + 1][i]
+                + state_Z[rd + 1][i + 4]
+                + state_Z[rd][SR[i + 8]]
+                + state_Z[rd][SR[i + 12]]
+                <= 3 + con_3[rd][i]
+            )
+            SKINNY.addGenConstrIndicator(con_4[rd][i], 1, con_1[rd][i] + con_2[rd][i] + con_3[rd][i] >= 3)
+            SKINNY.addGenConstrIndicator(con_4[rd][i], 0, con_1[rd][i] + con_2[rd][i] + con_3[rd][i] <= 1)
             Con.add(con_1[rd][i])
             Con.add(con_2[rd][i])
+            Con.add(con_3[rd][i])
+            Con.add(-con_4[rd][i])
 
     # VAR W - forward determination
     state_W_l[0] = SKINNY.addVars(16, vtype=GRB.BINARY, name="state_W_l_0")
@@ -296,14 +318,17 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
         )
         # SR
         SKINNY.addConstrs(state_M_l[rd][SR[i]] == state_M_nl[rd][i] for i in range(16))
+    for i in range(16):
+        Data.add(state_M_l[0][i])
 
     # VAR O - backward determination
-    state_O_l[r_in - 1] = SKINNY.addVars(
-        16, vtype=GRB.BINARY, name="state_O_l_" + str(r_in - 1)
-    )
-    SKINNY.addConstrs(
-        state_O_l[r_in - 1][i] == state_M_l[r_in - 1][i] for i in range(16)
-    )
+    if r_in > 0:
+        state_O_l[r_in - 1] = SKINNY.addVars(
+            16, vtype=GRB.BINARY, name="state_O_l_" + str(r_in - 1)
+        )
+        SKINNY.addConstrs(
+            state_O_l[r_in - 1][i] == state_M_l[r_in - 1][i] for i in range(16)
+        )
     for rd in range(r_in - 2, -1, -1):
         state_O_nl[rd] = SKINNY.addVars(
             16, vtype=GRB.BINARY, name="state_O_nl_" + str(rd)
@@ -393,11 +418,22 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
         Key.add(beta[i])
         Key.add(gamma[i])
 
-    SKINNY.addConstr(Obj >= Deg - Con)
+    SKINNY.addConstr(Obj >= Deg - Con - Data + 1)
     SKINNY.addConstr(Obj >= Key)
 
     # Reasonable
-    SKINNY.addConstr(Obj <= 48)
+    if mx_key != 0:
+        SKINNY.addConstr(Key <= mx_key)
+    else:
+        SKINNY.addConstr(Key <= 47)
+    if mx_deg != 0:
+        SKINNY.addConstr(Deg - Con <= mx_deg)
+    # else:
+    #     SKINNY.addConstr(Deg - Con <= 47)
+    if mx_data != 0:
+        SKINNY.addConstr(Data <= mx_data)
+    else:
+        SKINNY.addConstr(Data <= 15)
 
     # Objective function
     # SKINNY.addConstr(state_Z[0][14] == 1)  # To be deleted!!!
@@ -406,20 +442,26 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
     # Start solver
     # SKINNY.setParam("OutputFlag", 0)
     SKINNY.Params.PoolSearchMode = 2
-    SKINNY.Params.PoolSolutions = 3  # 84 sols
-    SKINNY.Params.PoolGap = 3.0
+    SKINNY.Params.PoolSolutions = 1  # Number of sols
+    SKINNY.Params.PoolGap = 2.0
+    SKINNY.Params.TimeLimit = 200
     # SKINNY.setParam("IntFeasTol", 1e-9)
     SKINNY.optimize()
     print("Model Status:", SKINNY.Status)
-    if SKINNY.Status == 2:
+    if SKINNY.Status == 2 or SKINNY.Status == 9:
         print("Min_Obj: %g" % SKINNY.ObjVal)
 
         # All solutions
         for k in range(SKINNY.SolCount):
             SKINNY.Params.SolutionNumber = k
             print(
-                "************ Sol no.{}    Deg = {} ************".format(
-                    k + 1, Evaluate_objective(SKINNY)
+                "******** Sol no.{}    Obj = {}    Deg = {} - {} = {}    Key = {}    Data = {} ********".format(
+                    k + 1, round(Obj.Xn), 
+                    round(Evaluate_expr(SKINNY, Deg)), 
+                    round(Evaluate_expr(SKINNY, Con)), 
+                    round(Evaluate_expr(SKINNY, Deg) - Evaluate_expr(SKINNY, Con)), 
+                    round(Evaluate_expr(SKINNY, Key)), 
+                    round(Evaluate_expr(SKINNY, Data))
                 )
             )
             strr = "A = [ "
@@ -487,22 +529,13 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
             # print("---------- Con ----------")
             # for rd in range(r_dist):
             #     print(
-            #         "con_1[",
+            #         "con[",
             #         rd,
             #         "] :",
-            #         round(con_1[rd][0].Xn),
-            #         round(con_1[rd][1].Xn),
-            #         round(con_1[rd][2].Xn),
-            #         round(con_1[rd][3].Xn),
-            #     )
-            #     print(
-            #         "con_2[",
-            #         rd,
-            #         "] :",
-            #         round(con_2[rd][0].Xn),
-            #         round(con_2[rd][1].Xn),
-            #         round(con_2[rd][2].Xn),
-            #         round(con_2[rd][3].Xn),
+            #         round(con_1[rd][0].Xn + con_2[rd][0].Xn + con_3[rd][0].Xn - con_4[rd][0].Xn),
+            #         round(con_1[rd][1].Xn + con_2[rd][1].Xn + con_3[rd][1].Xn - con_4[rd][1].Xn),
+            #         round(con_1[rd][2].Xn + con_2[rd][2].Xn + con_3[rd][2].Xn - con_4[rd][2].Xn),
+            #         round(con_1[rd][3].Xn + con_2[rd][3].Xn + con_3[rd][3].Xn - con_4[rd][3].Xn),
             #     )
 
             # print("---------- Var O ----------")
@@ -564,7 +597,9 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out):
             #                 round(state_M_nl[rd][4 * i + 2].Xn),
             #                 round(state_M_nl[rd][4 * i + 3].Xn),
             #             )
+    return SKINNY.Status
 
 
 if __name__ == "__main__":
-    Search_ds_mitm_attacks(10, 3, 9)
+    # r_dist, r_in, r_out, mx_deg, mx_key, mx_data
+    Search_ds_mitm_attacks(11, 3, 9, 0, 0, 0)
