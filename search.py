@@ -753,7 +753,7 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out, mx_deg, mx_key, mx_data):
 if __name__ == "__main__":
     # r_dist, r_in, r_out, mx_deg, mx_key, mx_data
 
-    Search_ds_mitm_attacks(11, 4, 9, 0, 0, 0)
+    Search_ds_mitm_attacks(11, 3, 10, 0, 0, 0)
 
     # Exploiting Non-Full Key Additions: Full-Fledged Automatic Demirci-Selcuk Meet-in-the-Middle Cryptanalysis of SKINNY
     # Search_ds_mitm_attacks(9, 4, 10, 0, 0, 0)
