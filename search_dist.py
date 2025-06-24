@@ -308,14 +308,12 @@ def Search_ds_distinguishers(r_dist, mx_deg):
         SKINNY.addConstr(dummy_K[i] <= big_M * dummy_B[i])
         Key_sieve.add(dummy_K[i])
 
-    # Value Constraints
-    SKINNY.addConstr(Obj >= Start + Deg - Con - Key_sieve)
-
     # Reasonable
     if mx_deg != 0:
         SKINNY.addConstr(Deg - Con - Key_sieve <= mx_deg)
 
     # Objective function
+    SKINNY.addConstr(Obj >= Start + Deg - Con - Key_sieve)
     # SKINNY.addConstr(state_Z[0][14] == 1)  # To be deleted!!!
     SKINNY.setObjective(Obj, GRB.MINIMIZE)
 
@@ -462,5 +460,4 @@ def Search_ds_distinguishers(r_dist, mx_deg):
 
 if __name__ == "__main__":
     # r_dist, mx_deg
-
     Search_ds_distinguishers(10, 0)
