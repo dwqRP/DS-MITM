@@ -283,7 +283,7 @@ def Search_ds_distinguishers(r_dist, mx_deg):
                 key_V[rd][SR[i]], [state_V_sb[rd][i], state_Z[rd][SR[i]]]
             )
 
-    # Key-Bridging & Key-dependent-sieve
+    # Key-dependent-sieve
     for i in range(16):
         key_dep[i] = LinExpr()
 
