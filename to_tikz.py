@@ -100,7 +100,7 @@ def write_dist(g, r_dist, r_in, deg, nonfull, keyseive):
         x_shift = 0
         for o in range(4):
             if block_cnt == 2 * r_dist + 1:
-                txt += "    \\path (18,-1) node {{\\tiny $OBJ_{{Dis}}: {}\\ \\ \\ \\ \\ Cut_{{Nonfull}}: {}\\ \\ \\ \\ \\ Cut_{{Keyseive}}: {}$}};".format(
+                txt += "    \\path (18,-1) node {{\\tiny $OBJ_{{Dis}}: {}\\ \\ \\ \\ \\ Cut_{{Nonfull}}: {}\\ \\ \\ \\ \\ Cut_{{Keyseive}}: {}$}};\n".format(
                     deg, nonfull, keyseive
                 )
                 break
@@ -203,7 +203,7 @@ def write_dist(g, r_dist, r_in, deg, nonfull, keyseive):
     file.write(txt)
 
 
-def init_keyr(g, lines):
+def init_keyr(g, lines, r_in):
     match = re.search(r"Key = (\d+)", lines[2])
     key = int(match.group(1))
 
@@ -223,10 +223,31 @@ def init_keyr(g, lines):
         vals = line1.split(" ") + line2.split(" ")
         # print(vals)
         for j in range(8):
-            g[i][SR[j]]["O"] = int(vals[j])
+            g[i][SR[j]]["KO"] = int(vals[j])
     i += 2
     for j in range(8):
-        g[i][j]["O"] = 0
+        g[i][j]["KO"] = 0
+
+    st = ed = 0
+    for idx, line in enumerate(lines):
+        if "----------" in line and st != 0:
+            ed = idx
+            break
+        if "Var F" in line:
+            st = idx
+    i = 2 * r_in + 1
+    for j in range(8):
+        g[i][j]["KF"] = 0
+    for idx in range(st + 6, ed, 10):
+        # print(lines[idx])
+        i += 2
+        line1 = lines[idx + 1]
+        line2 = lines[idx + 2]
+        vals = line1.split(" ") + line2.split(" ")
+        # print(vals)
+        for j in range(8):
+            g[i][SR[j]]["KF"] = int(vals[j])
+
     st = 0
     for idx, line in enumerate(lines):
         if "Key-Bridge" in line:
@@ -262,7 +283,7 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
                 else:
                     txt += "    \\begin{scope}[xshift=33cm,yshift=3.5cm]\n"
                 for j in range(8):
-                    if g[block_cnt][j]["O"] == 1:
+                    if g[block_cnt][j]["KO"] == 1:
                         txt += "        \\fill[color=orange!40] ({},{}) rectangle +(1,1);\n".format(
                             XX[j], YY[j] - 2
                         )
@@ -288,10 +309,22 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
                 txt += "        \\path (2,4.5) node {{\\tiny Round {}}};\n".format(rnd)
                 rnd += 1
             for j in range(16):
+                # print(block_cnt)
                 if g[block_cnt][j]["M"] == 1:
-                    txt += "        \\fill[pattern=crosshatch ,pattern color=gray] ({},{}) rectangle +(1,1);\n".format(
+                    txt += "        \\fill[color=red!40] ({},{}) rectangle +(1,1);\n".format(
                         XX[j], YY[j]
                     )
+                if block_cnt < 2 * r_in - 1:
+                    if g[block_cnt][j]["O"] == 1:
+                        txt += "        \\fill[pattern=north east lines] ({},{}) rectangle +(1,1);\n".format(
+                            XX[j], YY[j]
+                        )
+                        # txt += "        \\fill[color=red!40] ({},{}) rectangle +(1,1);\n".format(
+                        #     XX[j], YY[j]
+                        # )
+                    # txt += "        \\fill ({},{}) circle (0.25);\n".format(
+                    #     XX[j] + 0.5, YY[j] + 0.5
+                    # )
             txt += "        \\draw (0,0) rectangle (4,4);\n"
             txt += "        \\draw (0,1) -- +(4,0);\n"
             txt += "        \\draw (0,2) -- +(4,0);\n"
@@ -341,7 +374,7 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
         x_shift = 0
         for o in range(4):
             if block_cnt == 2 * (r_in + r_out + 1):
-                txt += "    \\path (18,-1) node {{\\tiny $OBJ_{{K}}: {}\\ \\ \\ \\ \\ Cut_{{Keybridge}}: {}$}};".format(
+                txt += "    \\path (18,-1) node {{\\tiny $OBJ_{{K}}: {}\\ \\ \\ \\ \\ Cut_{{Keybridge}}: {}$}};\n".format(
                     key, keybridge
                 )
                 break
@@ -351,7 +384,7 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
                 else:
                     txt += "    \\begin{scope}[xshift=33cm,yshift=3.5cm]\n"
                 for j in range(8):
-                    if g[block_cnt][j]["W"] == 1:
+                    if g[block_cnt][j]["W"] == 1 or g[block_cnt][j]["KF"] == 1:
                         txt += "        \\fill[color=orange!40] ({},{}) rectangle +(1,1);\n".format(
                             XX[j], YY[j] - 2
                         )
@@ -377,10 +410,29 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
                 txt += "        \\path (2,4.5) node {{\\tiny Round {}}};\n".format(rnd)
                 rnd += 1
             for j in range(16):
-                if g[block_cnt][j]["W"] == 1:
+                if g[block_cnt][j]["W"] == 1 and g[block_cnt][j]["E"] == 1:
+                    txt += "        \\fill[color=red!40] ({},{}) rectangle +(0.5,1);\n".format(
+                        XX[j], YY[j]
+                    )
+                    txt += "        \\fill[color=blue!40] ({},{}) rectangle +(0.5,1);\n".format(
+                        XX[j] + 0.5, YY[j]
+                    )
+                if g[block_cnt][j]["W"] == 0 and g[block_cnt][j]["E"] == 1:
+                    txt += "        \\fill[color=red!40] ({},{}) rectangle +(1,1);\n".format(
+                        XX[j], YY[j]
+                    )
+                if g[block_cnt][j]["W"] == 1 and g[block_cnt][j]["E"] == 0:
                     txt += "        \\fill[color=blue!40] ({},{}) rectangle +(1,1);\n".format(
                         XX[j], YY[j]
                     )
+                if block_cnt > 2 * r_in + 2:
+                    if g[block_cnt][j]["F"] == 1:
+                        txt += "        \\fill[pattern=north east lines] ({},{}) rectangle +(1,1);\n".format(
+                            XX[j], YY[j]
+                        )
+                    # txt += "        \\fill ({},{}) circle (0.25);\n".format(
+                    #     XX[j] + 0.5, YY[j] + 0.5
+                    # )
             txt += "        \\draw (0,0) rectangle (4,4);\n"
             txt += "        \\draw (0,1) -- +(4,0);\n"
             txt += "        \\draw (0,2) -- +(4,0);\n"
@@ -417,7 +469,7 @@ def write_keyr(g, r_dist, r_in, r_out, key, keybridge):
 if __name__ == "__main__":
     r_in = 3
     r_dist = 12
-    r_out = 9
+    r_out = 8
     lines = read_file()
     state_dist = []
     for i in range(2 * r_dist + 1):
@@ -444,8 +496,11 @@ if __name__ == "__main__":
         for j in range(16):
             state_keyr[i].append({})
     state_keyr = init(state_keyr, lines, 1, "M", -1)
-    state_keyr = init(state_keyr, lines, 1, "W", 6)
-    state_keyr, key, keybridge = init_keyr(state_keyr, lines)
+    state_keyr = init(state_keyr, lines, 1, "O", -1)
+    state_keyr = init(state_keyr, lines, 1, "W", 2 * r_in)
+    state_keyr = init(state_keyr, lines, 1, "E", 2 * r_in)
+    state_keyr = init(state_keyr, lines, 1, "F", 2 * r_in + 2)
+    state_keyr, key, keybridge = init_keyr(state_keyr, lines, r_in)
     # for i in range(2 * (r_in + r_out + 1)):
     #     print("--------")
     #     for j in range(16):

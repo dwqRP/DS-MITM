@@ -428,8 +428,8 @@ def Search_ds_distinguishers_td(r_dist, r_mid):
             for i in range(16):
                 Deg.add(state_GZ[rd][i])
 
-    for i in range(16):
-        Deg.add(state_GT_l[0][i])
+    # for i in range(16):
+    #     Deg.add(state_GT_l[0][i])
 
     # VAR GU: Z=1 or GT=1
     for rd in range(r_dist + 1):
@@ -822,10 +822,10 @@ def Search_ds_distinguishers_td(r_dist, r_mid):
 
 if __name__ == "__main__":
 
-    # round_dist = 12
+    round_dist = 11
 
-    # # Enumerate r_mid
-    # for i in range(1, round_dist):
-    #     # r_dist, r_mid
-    #     Search_ds_distinguishers_td(round_dist, i)
-    Search_ds_distinguishers_td(12, 6)
+    # Enumerate r_mid
+    for i in range(1, round_dist):
+        # r_dist, r_mid
+        Search_ds_distinguishers_td(round_dist, i)
+    # Search_ds_distinguishers_td(12, 6)
