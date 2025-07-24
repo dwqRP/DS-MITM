@@ -1,8 +1,10 @@
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, Value
 from collections import Counter
 import itertools
 import math
 import time
+from functools import partial
+from tqdm import tqdm
 
 # S-box and inverse (from Keccak cipher)
 S = [
@@ -1189,6 +1191,14 @@ def init_ddt():
 
 ddt = init_ddt()
 
+counter = None
+
+
+def init_counter(c):
+    """Pool initializer: 把 counter 传给子进程的全局变量"""
+    global counter
+    counter = c
+
 
 def task(params):
     a, x2_0, x2_1, x4_0, x4_1, w4_0 = params
@@ -1248,14 +1258,37 @@ def task(params):
     return result
 
 
+def wrapper(params):
+    """调用 task，然后更新计数器"""
+    res = task(params)
+    # Value 自带 lock，可直接调用
+    with counter.get_lock():
+        counter.value += 1
+    return res
+
+
 if __name__ == "__main__":
     start = time.time()
-    all_params = list(itertools.product(range(32), repeat=6))
 
-    with Pool(processes=cpu_count()) as pool:
-        results = pool.map(task, all_params)
+    total = 32**6  # 参数空间总大小
+    counter = Value("I", 0)  # 在主进程创建
 
-    multisets = [r for group in results if group for r in group]
-    print("Total multisets:", math.log2(len(multisets)))
-    print("Distinct multisets (log2):", math.log2(len(set(multisets))))
-    print("Elapsed time: {:.2f} seconds".format(time.time() - start))
+    params_iter = itertools.product(range(32), repeat=6)
+
+    # Pool 时指定 initializer，确保子进程继承到同一个 counter
+    with Pool(
+        processes=cpu_count(), initializer=init_counter, initargs=(counter,)
+    ) as pool:
+
+        result_iter = pool.imap_unordered(wrapper, params_iter, chunksize=100)
+
+        # 主进程显示进度条
+        with tqdm(total=total, desc="Processed", ncols=80) as pbar:
+            last = 0
+            for _ in result_iter:
+                now = counter.value
+                pbar.update(now - last)
+                last = now
+
+    elapsed = time.time() - start
+    print(f"Elapsed time: {elapsed:.2f} seconds")

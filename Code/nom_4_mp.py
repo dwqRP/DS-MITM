@@ -119,6 +119,6 @@ if __name__ == "__main__":
         results = pool.map(task, all_params)
 
     multisets = [r for group in results if group for r in group]
-    print("Total multisets:", math.log2(len(multisets)))
+    print("Total multisets (log2):", math.log2(len(multisets)))
     print("Distinct multisets (log2):", math.log2(len(set(multisets))))
     print("Elapsed time: {:.2f} seconds".format(time.time() - start))
