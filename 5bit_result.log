@@ -1,0 +1,4 @@
+Processed: 100%|██████████| 1073741824/1073741824 [1:42:16<00:00, 174964.85it/s]
+Total multisets:        1136066304 (log2 = 30.0814)
+Distinct multisets:     1134928703 (log2 = 30.0800)
+Elapsed time: 6845.68 seconds

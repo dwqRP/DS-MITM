@@ -1,6 +1,9 @@
 # 忽略所有 __pycache__ 目录
 **/__pycache__/
 
+# 忽略所有 .vscode 目录
+**/.vscode/
+
 # 忽略 Python 编译生成的 .pyc/.pyo/.pyd 等文件
 *.py[cod]
 *$py.class

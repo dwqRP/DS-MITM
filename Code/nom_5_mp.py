@@ -1195,7 +1195,6 @@ counter = None
 
 
 def init_counter(c):
-    """Pool initializer: 把 counter 传给子进程的全局变量"""
     global counter
     counter = c
 
@@ -1259,9 +1258,7 @@ def task(params):
 
 
 def wrapper(params):
-    """调用 task，然后更新计数器"""
     res = task(params)
-    # Value 自带 lock，可直接调用
     with counter.get_lock():
         counter.value += 1
     return res
@@ -1270,25 +1267,36 @@ def wrapper(params):
 if __name__ == "__main__":
     start = time.time()
 
-    total = 32**6  # 参数空间总大小
-    counter = Value("I", 0)  # 在主进程创建
+    total = 32**6
+    counter = Value("I", 0)
 
     params_iter = itertools.product(range(32), repeat=6)
 
-    # Pool 时指定 initializer，确保子进程继承到同一个 counter
+    all_results = []
+
     with Pool(
         processes=cpu_count(), initializer=init_counter, initargs=(counter,)
     ) as pool:
+        result_iter = pool.imap_unordered(wrapper, params_iter, chunksize=200000)
 
-        result_iter = pool.imap_unordered(wrapper, params_iter, chunksize=100)
-
-        # 主进程显示进度条
         with tqdm(total=total, desc="Processed", ncols=80) as pbar:
             last = 0
-            for _ in result_iter:
+            for res in result_iter:
+                if res:
+                    all_results.extend(res)
                 now = counter.value
                 pbar.update(now - last)
                 last = now
+
+    if not all_results:
+        print("No results were generated.")
+    else:
+        total_ms = len(all_results)
+        distinct_ms = len(set(all_results))
+        print(f"Total multisets:        {total_ms} (log2 = {math.log2(total_ms):.4f})")
+        print(
+            f"Distinct multisets:     {distinct_ms} (log2 = {math.log2(distinct_ms):.4f})"
+        )
 
     elapsed = time.time() - start
     print(f"Elapsed time: {elapsed:.2f} seconds")

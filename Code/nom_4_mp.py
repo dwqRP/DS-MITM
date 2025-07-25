@@ -1,8 +1,8 @@
-from multiprocessing import Pool, cpu_count
-from collections import Counter
+from multiprocessing import Pool, cpu_count, Value
 import itertools
 import math
 import time
+from tqdm import tqdm
 
 # S-box and inverse (from PRESENT cipher)
 S = [12, 5, 6, 11, 9, 0, 10, 13, 3, 14, 15, 8, 4, 7, 1, 2]
@@ -51,6 +51,14 @@ def init_ddt():
 
 
 ddt = init_ddt()
+
+
+counter = None
+
+
+def init_counter(c):
+    global counter
+    counter = c
 
 
 def task(params):
@@ -111,14 +119,46 @@ def task(params):
     return result
 
 
+def wrapper(params):
+    res = task(params)
+    with counter.get_lock():
+        counter.value += 1
+    return res
+
+
 if __name__ == "__main__":
     start = time.time()
-    all_params = list(itertools.product(range(16), repeat=6))
 
-    with Pool(processes=cpu_count()) as pool:
-        results = pool.map(task, all_params)
+    total = 16**6
+    counter = Value("I", 0)
 
-    multisets = [r for group in results if group for r in group]
-    print("Total multisets (log2):", math.log2(len(multisets)))
-    print("Distinct multisets (log2):", math.log2(len(set(multisets))))
-    print("Elapsed time: {:.2f} seconds".format(time.time() - start))
+    params_iter = itertools.product(range(16), repeat=6)
+
+    all_results = []
+
+    with Pool(
+        processes=cpu_count(), initializer=init_counter, initargs=(counter,)
+    ) as pool:
+        result_iter = pool.imap_unordered(wrapper, params_iter, chunksize=200000)
+
+        with tqdm(total=total, desc="Processed", ncols=80) as pbar:
+            last = 0
+            for res in result_iter:
+                if res:
+                    all_results.extend(res)
+                now = counter.value
+                pbar.update(now - last)
+                last = now
+
+    if not all_results:
+        print("No results were generated.")
+    else:
+        total_ms = len(all_results)
+        distinct_ms = len(set(all_results))
+        print(f"Total multisets:        {total_ms} (log2 = {math.log2(total_ms):.4f})")
+        print(
+            f"Distinct multisets:     {distinct_ms} (log2 = {math.log2(distinct_ms):.4f})"
+        )
+
+    elapsed = time.time() - start
+    print(f"Elapsed time: {elapsed:.2f} seconds")
