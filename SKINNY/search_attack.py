@@ -346,7 +346,7 @@ def Search_ds_mitm_attacks(r_dist, r_in, r_out, mx_deg, mx_key, mx_data):
 
     # VAR M - backward differential
     state_M_l[r_in] = SKINNY.addVars(
-        16, vtype=GRB.BINARY, name="state_W_l_" + str(r_in)
+        16, vtype=GRB.BINARY, name="state_M_l_" + str(r_in)
     )
     SKINNY.addConstrs(state_M_l[r_in][i] == state_Z[0][i] for i in range(16))
     for rd in range(r_in - 1, -1, -1):
