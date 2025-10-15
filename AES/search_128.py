@@ -54,7 +54,7 @@ def Build_mixcolumn(var1, r1, var2, r2):
 
 
 # Offline phase
-def Build_distinguisehr(r_dist):
+def Build_distinguisher(r_dist):
     # VAR X - forward differential
     state_X_nl[0] = AES.addVars(16, vtype=GRB.BINARY, name="state_X_nl_0")
     for rd in range(1, r_dist):
@@ -471,11 +471,11 @@ def Print_variable_M(r_in):
 def Print_variable_W(r_dist, r_out):
     print("---------- Var W ----------")
     for rd in range(r_out + 1):
-        print("W_linear[", rd + r_dist, "]")
+        print("W_linear[", rd + r_dist + r_in, "]")
         Print_var(rd, state_W_l)
         if rd < r_out:
             print("-- (ARK, SB, SR) ->")
-            print("W_non_linear[", rd + r_dist, "]")
+            print("W_non_linear[", rd + r_dist + r_in, "]")
             Print_var(rd, state_W_nl)
             print("-- (MC) ->")
 
@@ -570,7 +570,7 @@ if __name__ == "__main__":
     r_dist = 4
     r_in = 1
     r_out = 2
-    Build_distinguisehr(r_dist)
+    Build_distinguisher(r_dist)
     Build_key_recovery(r_in, r_dist, r_out)
     Build_key_bridging(r_in, r_dist, r_out)
     Set_objective()

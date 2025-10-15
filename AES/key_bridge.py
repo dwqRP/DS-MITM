@@ -7,12 +7,12 @@ r_dist = 4
 r_out = 2
 
 K_in = [
-    [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
-    [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    [[1, 0, 1, 0], [0, 1, 0, 1], [1, 0, 1, 0], [1, 1, 1, 1]],
+    [[0, 0, 0, 0], [0, 0, 0, 0], [1, 0, 1, 0], [0, 0, 0, 0]],
 ]
 K_out = [
-    [[0, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]],
-    [[0, 1, 1, 0], [1, 1, 0, 0], [1, 0, 0, 1], [0, 0, 1, 1]],
+    [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    [[0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0], [1, 0, 0, 0]],
 ]
 # K_in = [[[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]]
 # K_out = [
@@ -61,14 +61,14 @@ for rd in range(r_dist):
 for rd in range(r_out):
     for i in range(4):
         idx = 4 * (rd + r_in + r_dist + 1) + i
-        AES.addConstrs(involved_k[idx][j] == 0 for j in range(4))
-        AES.addConstrs(
-            involved_u[idx][j] == state_W_nl[rd][4 * i + j] for j in range(4)
-        )
-        # AES.addConstrs(involved_u[idx][j] == 0 for j in range(4))
+        # AES.addConstrs(involved_k[idx][j] == 0 for j in range(4))
         # AES.addConstrs(
-        #     involved_k[idx][j] == state_W_nl[rd][4 * i + j] for j in range(4)
+        #     involved_u[idx][j] == state_W_nl[rd][4 * i + j] for j in range(4)
         # )
+        AES.addConstrs(involved_u[idx][j] == 0 for j in range(4))
+        AES.addConstrs(
+            involved_k[idx][j] == state_W_nl[rd][4 * i + j] for j in range(4)
+        )
 
 
 def calc(x, y):
@@ -319,19 +319,19 @@ if AES.Status == 2 or AES.Status == 9:
 
     print("****** Min_Obj: %g ******" % AES.ObjVal)
 
-    # print("---------- Involved key ----------")
-    # for i in range(m):
-    #     print(
-    #         round(involved_k[i][0].Xn),
-    #         round(involved_k[i][1].Xn),
-    #         round(involved_k[i][2].Xn),
-    #         round(involved_k[i][3].Xn),
-    #     )
-    # print("----------------------------------")
-    # for i in range(m):
-    #     print(
-    #         round(involved_u[i][0].Xn),
-    #         round(involved_u[i][1].Xn),
-    #         round(involved_u[i][2].Xn),
-    #         round(involved_u[i][3].Xn),
-    #     )
+    print("---------- Involved key ----------")
+    for i in range(m):
+        print(
+            round(involved_k[i][0].Xn),
+            round(involved_k[i][1].Xn),
+            round(involved_k[i][2].Xn),
+            round(involved_k[i][3].Xn),
+        )
+    print("----------------------------------")
+    for i in range(m):
+        print(
+            round(involved_u[i][0].Xn),
+            round(involved_u[i][1].Xn),
+            round(involved_u[i][2].Xn),
+            round(involved_u[i][3].Xn),
+        )
