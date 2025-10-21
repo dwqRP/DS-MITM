@@ -365,7 +365,6 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
         # relation 2: S(a)^b^c == const
         vals = [
             (SBOX[expanded_list[t][i]] ^ expanded_list[t][j] ^ expanded_list[t][k])
@@ -381,7 +380,6 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
         # relation 3: a^S(b)^c
         vals = [
             (expanded_list[t][i] ^ SBOX[expanded_list[t][j]] ^ expanded_list[t][k])
@@ -397,7 +395,6 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
         # relation 4: a^b^S(c)
         vals = [
             (expanded_list[t][i] ^ expanded_list[t][j] ^ SBOX[expanded_list[t][k]])
@@ -413,8 +410,52 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
-        # relation 5: S(a)^S(b)^c
+        # relation 5: S(a^b)^c
+        vals = [
+            (SBOX[expanded_list[t][i] ^ expanded_list[t][j]] ^ expanded_list[t][k])
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(a^b)^c",
+                    "constant": vals[0],
+                }
+            )
+        # relation 6: S(a^c)^b
+        vals = [
+            (SBOX[expanded_list[t][i] ^ expanded_list[t][k]] ^ expanded_list[t][j])
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(a^c)^b",
+                    "constant": vals[0],
+                }
+            )
+        # relation 7: a^S(b^c)
+        vals = [
+            (expanded_list[t][i] ^ SBOX[expanded_list[t][j] ^ expanded_list[t][k]])
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "a^S(b^c)",
+                    "constant": vals[0],
+                }
+            )
+        # relation 8: S(a)^S(b)^c
         vals = [
             (
                 SBOX[expanded_list[t][i]]
@@ -433,8 +474,7 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
-        # relation 6: a^S(b)^S(c)
+        # relation 9: a^S(b)^S(c)
         vals = [
             (
                 expanded_list[t][i]
@@ -453,8 +493,7 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
-        # relation 7: S(a)^b^S(c)
+        # relation 10: S(a)^b^S(c)
         vals = [
             (
                 SBOX[expanded_list[t][i]]
@@ -473,8 +512,115 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
-        # relation 8: S(a)^S(b)^S(c)
+        # relation 11: S(S(a)^b)^c
+        vals = [
+            (
+                SBOX[SBOX[expanded_list[t][i]] ^ expanded_list[t][j]]
+                ^ expanded_list[t][k]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(S(a)^b)^c",
+                    "constant": vals[0],
+                }
+            )
+        # relation 12: S(a^S(b))^c
+        vals = [
+            (
+                SBOX[expanded_list[t][i] ^ SBOX[expanded_list[t][j]]]
+                ^ expanded_list[t][k]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(a^S(b))^c",
+                    "constant": vals[0],
+                }
+            )
+        # relation 13: S(S(a)^c)^b
+        vals = [
+            (
+                SBOX[SBOX[expanded_list[t][i]] ^ expanded_list[t][k]]
+                ^ expanded_list[t][j]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(S(a)^c)^b",
+                    "constant": vals[0],
+                }
+            )
+        # relation 14: S(a^S(c))^b
+        vals = [
+            (
+                SBOX[expanded_list[t][i] ^ SBOX[expanded_list[t][k]]]
+                ^ expanded_list[t][j]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "S(a^S(c))^b",
+                    "constant": vals[0],
+                }
+            )
+        # relation 15: a^S(S(b)^c)
+        vals = [
+            (
+                expanded_list[t][i]
+                ^ SBOX[SBOX[expanded_list[t][j]] ^ expanded_list[t][k]]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "a^S(S(b)^c)",
+                    "constant": vals[0],
+                }
+            )
+        # relation 16: a^S(b^S(c))
+        vals = [
+            (
+                expanded_list[t][i]
+                ^ SBOX[expanded_list[t][j] ^ SBOX[expanded_list[t][k]]]
+            )
+            for t in range(trials)
+        ]
+        if all(v == vals[0] for v in vals):
+            matches.append(
+                {
+                    "pos_i": i,
+                    "pos_j": j,
+                    "pos_k": k,
+                    "relation": "a^S(b^S(c))",
+                    "constant": vals[0],
+                }
+            )
+        # relation 17: S(a)^S(b)^S(c)
         vals = [
             (
                 SBOX[expanded_list[t][i]]
@@ -493,13 +639,11 @@ def find_triple_constant_relations(R: int = 10, trials: int = 10):
                     "constant": vals[0],
                 }
             )
-            continue
         if total_checked % 100000 == 0:
             elapsed = time.time() - t0
             print(
                 f"Checked {total_checked} triples, elapsed {elapsed:.1f}s, matches so far: {len(matches)}"
             )
-    df = pd.DataFrame(matches)
     # format positions into k_r[i] notation for printing
     lines = []
     rows = []
