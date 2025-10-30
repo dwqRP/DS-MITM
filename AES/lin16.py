@@ -83,8 +83,8 @@ def Gf_inv(a: int) -> int:
 
 def Gauss_elimination(M, n):
     m, p = M.shape
-    if not (1 <= n <= p):
-        raise ValueError("n must satisfy 1 <= n <= number of columns")
+    if not (0 <= n <= p):
+        raise ValueError("n must satisfy 0 <= n <= number of columns")
     A = M.copy()
     row = 0
     for col in range(n):
@@ -285,11 +285,12 @@ def Relation_derivation(K0, K, A2, offset):
                 if k[2] == 0 and (k[0], k[1], 1) in K:
                     if k in vis:
                         continue
-                    coeff = [i for i in range(exk, p) if A2[r, i] != 0]
-                    if len(coeff) == 1:
-                        continue
+                    # coeff = [i for i in range(exk, p) if A2[r, i] != 0]
+                    # if len(coeff) == 1:
+                    #     continue
                     flag = True
                     vis.add(k)
+                    vis.add((k[0], k[1], 1))
                     dict_str[cnt] = "S("
                     for i in range(exk, p):
                         if A2[r, i] != 0:
@@ -315,11 +316,12 @@ def Relation_derivation(K0, K, A2, offset):
                 if k[2] == 1:
                     if k in vis:
                         continue
-                    coeff = [i for i in range(exk, p) if A2[r, i] != 0]
-                    if len(coeff) == 1:
-                        continue
+                    # coeff = [i for i in range(exk, p) if A2[r, i] != 0]
+                    # if len(coeff) == 1:
+                    #     continue
                     flag = True
                     vis.add(k)
+                    vis.add((k[0], k[1], 0))
                     dict_str[cnt] = "inv_S("
                     for i in range(exk, p):
                         if A2[r, i] != 0:
@@ -354,7 +356,7 @@ def Relation_derivation(K0, K, A2, offset):
     # print(st)
     if st != -1:
         B2 = A2[st:, exk:]
-        print(B2)
+        print("B2:", B2)
         row, col = B2.shape
         for r in range(row):
             rel = ""
@@ -374,22 +376,14 @@ def Relation_derivation(K0, K, A2, offset):
 if __name__ == "__main__":
     R = 7
     Guessed_key = [
-        # [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        # [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
+        [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
         [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
     ]
     X, K, M = Init(R, Guessed_key)
     K0 = K.copy()
@@ -419,9 +413,11 @@ if __name__ == "__main__":
             break
     # print("st:", st)
     f.write(str(M[st:, : p - len(K)]))
-    # print("rank of A2:", np.linalg.matrix_rank(A2))
     A2 = M[st:, p - len(K) :]
-    # print(A2)
+    print("rank of A2:", np.linalg.matrix_rank(A2))
+    row_A2, col_A2 = A2.shape
+    print("number of row of A2:", row_A2, "; number of column of A2:", col_A2)
+    print("A2:", A2)
     Relations = Relation_derivation(K0, K, A2, p - len(K))
     print("Number of Relations:", len(Relations))
     print("Relations Found:")
