@@ -2,26 +2,31 @@ import numpy as np
 
 dict_index = {}
 dict_key = {}
+dict_str = {}
 
 
-def Init(R, K0):
+def Init(R, Guessed_key):
     X = set()
     K = set()
     cnt = 0
     for rd in range(R + 1):
         if rd < R:
             for i in range(12, 16):
-                dict_index[(rd, i, 1)] = cnt
-                dict_key[cnt] = (rd, i, 1)
+                Sk = (rd, i, 1)
+                dict_str[cnt] = "S(k_" + str(rd) + "[" + str(i) + "])"
+                dict_index[Sk] = cnt
+                dict_key[cnt] = Sk
                 cnt += 1
-                X.add((rd, i, 1))
+                X.add(Sk)
         for i in range(16):
-            dict_index[(rd, i, 0)] = cnt
-            dict_key[cnt] = (rd, i, 0)
+            k = (rd, i, 0)
+            dict_str[cnt] = "k_" + str(rd) + "[" + str(i) + "]"
+            dict_index[k] = cnt
+            dict_key[cnt] = k
             cnt += 1
-            X.add((rd, i, 0))
-            if K0[rd][i] == 1:
-                K.add((rd, i, 0))
+            X.add(k)
+            if Guessed_key[rd][i] == 1:
+                K.add(k)
                 if (rd, i, 1) in X:
                     K.add((rd, i, 1))
 
@@ -115,12 +120,44 @@ def Swap_column(M, i, j):
         return M
     k1 = dict_key[i]
     k2 = dict_key[j]
+    str1 = dict_str[i]
+    str2 = dict_str[j]
     dict_key[i] = k2
     dict_key[j] = k1
+    dict_str[i] = str2
+    dict_str[j] = str1
     dict_index[k1] = j
     dict_index[k2] = i
     M[:, [i, j]] = M[:, [j, i]]
     return M
+
+
+def Find_pivot(M, col):
+    m, p = M.shape
+    if not (0 <= col <= p - 1):
+        raise ValueError("col must satisfy 0 <= col < number of columns")
+    for r in range(m):
+        lst = [j for j in range(col) if M[r, j] != 0]
+        if len(lst) == 0 and M[r, col] == 1:
+            return r
+    return -1
+
+
+def Check_multiple(p, q):
+    if len(p) != len(q):
+        raise ValueError("length of p must equals length of q")
+    pos = -1
+    for i, e in enumerate(q):
+        if e != 0:
+            pos = i
+            break
+    if pos == -1:
+        raise ValueError("q can not be an all zero list")
+    factor = Gf_mul(p[pos], Gf_inv(q[pos]))
+    for i in range(len(p)):
+        if p[i] != Gf_mul(factor, q[i]):
+            return 0
+    return 1
 
 
 def Knowledge_propagation(X, K, M):
@@ -128,7 +165,7 @@ def Knowledge_propagation(X, K, M):
     for idx, k in enumerate(K):
         M = Swap_column(M, dict_index[k], p - idx - 1)
     # print(M)
-    print("Start Knowledge_propagation:")
+    print("------ Start Knowledge_propagation: ------")
     flag = True
     unk = p - len(K)
     while flag:
@@ -138,70 +175,256 @@ def Knowledge_propagation(X, K, M):
         # print("dict_key: ", dict_key)
         # print("dict_index: ", dict_index)
         for r in range(m):
-            # Situation 2
-            lst = [j for j in range(unk) if M[r, j] == 1]
+            lst = [j for j in range(unk) if M[r, j] != 0]
             if len(lst) == 1:
-                key_byte = dict_key[lst[0]]
-                if key_byte[2] == 1:
+                flag = True
+                k = dict_key[lst[0]]
+                # Situation 2
+                if k[2] == 0:
+                    unk -= 1
+                    M = Swap_column(M, lst[0], unk)
+                    K.add(k)
+                    print("Propagate to " + dict_str[dict_index[k]])
+                    Sk = (k[0], k[1], 1)
+                    if Sk in X:
+                        unk -= 1
+                        M = Swap_column(M, dict_index[Sk], unk)
+                        K.add(Sk)
+                        print("Propagate to " + dict_str[dict_index[Sk]])
+                # Situation 3 case (ii)
+                else:
+                    Sk = k
+                    k = (Sk[0], Sk[1], 0)
+                    unk -= 1
+                    M = Swap_column(M, dict_index[k], unk)
+                    K.add(k)
+                    print("Propagate to " + dict_str[dict_index[k]])
+                    unk -= 1
+                    M = Swap_column(M, dict_index[Sk], unk)
+                    K.add(Sk)
+                    print("Propagate to " + dict_str[dict_index[Sk]])
+                break
+            # Situation 3 case (ii)
+            if len(lst) == 2:
+                kx = dict_key[lst[0]]
+                ky = dict_key[lst[1]]
+                if not (kx[0] == ky[0] and kx[1] == ky[1]):
                     continue
                 flag = True
+                if kx[2] == 0:
+                    k = kx
+                    Sk = ky
+                else:
+                    k = ky
+                    Sk = kx
                 unk -= 1
-                M = Swap_column(M, lst[0], unk)
-                K.add(key_byte)
-                print(
-                    "Propagate to k_" + str(key_byte[0]) + "[" + str(key_byte[1]) + "]"
-                )
-                S_key_byte = (key_byte[0], key_byte[1], 1)
-                if S_key_byte in X:
-                    unk -= 1
-                    M = Swap_column(M, dict_index[S_key_byte], unk)
-                    K.add(S_key_byte)
-                    print(
-                        "Propagate to S(k_"
-                        + str(S_key_byte[0])
-                        + "["
-                        + str(S_key_byte[1])
-                        + "])"
-                    )
+                M = Swap_column(M, dict_index[k], unk)
+                K.add(k)
+                print("Propagate to " + dict_str[dict_index[k]])
+                unk -= 1
+                M = Swap_column(M, dict_index[Sk], unk)
+                K.add(Sk)
+                print("Propagate to " + dict_str[dict_index[Sk]])
                 break
+        if flag == True:
+            continue
+        for Sk in X:
+            if Sk[2] == 0:
+                continue
+            k = (Sk[0], Sk[1], 0)
+            if (Sk in K and not (k in K)) or (k in K and not (Sk in K)):
+                raise ValueError("Sk and k must both in K")
+            if Sk in K:
+                continue
+            # Situation 3 case (i)
+            mn = min(dict_index[k], dict_index[Sk])
+            mx = max(dict_index[k], dict_index[Sk])
+            rx = Find_pivot(M, mn)
+            ry = Find_pivot(M, mx)
+            # print(unk)
+            # print(M[rx, :], mn)
+            # print(M[ry, :], mx)
+            if rx != -1 and ry != -1:
+                non_zero = [j for j in range(mn + 1, mx) if M[rx, j] != 0]
+                coeff_x = [M[rx, j] for j in range(mx + 1, unk)]
+                coeff_y = [M[ry, j] for j in range(mx + 1, unk)]
+                # print(coeff_x)
+                # print(coeff_y)
+                if len(non_zero) == 0 and Check_multiple(coeff_x, coeff_y) == 1:
+                    flag = True
+                    unk -= 1
+                    M = Swap_column(M, dict_index[k], unk)
+                    K.add(k)
+                    print("Propagate to " + dict_str[dict_index[k]])
+                    unk -= 1
+                    M = Swap_column(M, dict_index[Sk], unk)
+                    K.add(Sk)
+                    print("Propagate to " + dict_str[dict_index[Sk]])
+                    break
     return K, M
+
+
+def Relation_derivation(K0, K, A2, offset):
+    vis = set()
+    m, p = A2.shape
+    # print(m, p, offset)
+    cnt = p + offset
+    print("------ Start Relation_derivation: ------")
+    flag = True
+    # print(len(K0), len(K), m, p)
+    exk = p - len(K0)
+    while flag:
+        flag = False
+        A2 = Gauss_elimination(A2, exk)
+        # print(A2)
+        for r in range(m):
+            lst = [j for j in range(exk) if A2[r, j] != 0]
+            if len(lst) == 1:
+                k = dict_key[lst[0] + offset]
+                # print(dict_str[lst[0] + offset])
+                if k[2] == 0 and (k[0], k[1], 1) in K:
+                    if k in vis:
+                        continue
+                    coeff = [i for i in range(exk, p) if A2[r, i] != 0]
+                    if len(coeff) == 1:
+                        continue
+                    flag = True
+                    vis.add(k)
+                    dict_str[cnt] = "S("
+                    for i in range(exk, p):
+                        if A2[r, i] != 0:
+                            if dict_str[cnt] != "S(":
+                                dict_str[cnt] += " + "
+                            if A2[r, i] == 1:
+                                dict_str[cnt] += dict_str[i + offset]
+                            else:
+                                dict_str[cnt] += (
+                                    str(A2[r, i]) + "*" + dict_str[i + offset]
+                                )
+                    dict_str[cnt] += ")"
+                    print(dict_str[dict_index[((k[0], k[1], 1))]], "=", dict_str[cnt])
+                    p += 1
+                    m += 1
+                    cnt += 1
+                    A2 = np.pad(
+                        A2, ((0, 1), (0, 1)), mode="constant", constant_values=0
+                    )
+                    A2[-1, -1] = 1
+                    A2[-1, dict_index[(k[0], k[1], 1)] - offset] = 1
+                    break
+                if k[2] == 1:
+                    if k in vis:
+                        continue
+                    coeff = [i for i in range(exk, p) if A2[r, i] != 0]
+                    if len(coeff) == 1:
+                        continue
+                    flag = True
+                    vis.add(k)
+                    dict_str[cnt] = "inv_S("
+                    for i in range(exk, p):
+                        if A2[r, i] != 0:
+                            if dict_str[cnt] != "inv_S(":
+                                dict_str[cnt] += " + "
+                            if A2[r, i] == 1:
+                                dict_str[cnt] += dict_str[i + offset]
+                            else:
+                                dict_str[cnt] += (
+                                    str(A2[r, i]) + "*" + dict_str[i + offset]
+                                )
+                    dict_str[cnt] += ")"
+                    print(dict_str[dict_index[((k[0], k[1], 0))]], "=", dict_str[cnt])
+                    p += 1
+                    m += 1
+                    cnt += 1
+                    A2 = np.pad(
+                        A2, ((0, 1), (0, 1)), mode="constant", constant_values=0
+                    )
+                    A2[-1, -1] = 1
+                    A2[-1, dict_index[(k[0], k[1], 0)] - offset] = 1
+                    break
+    Relations = []
+    A2 = Gauss_elimination(A2, p)
+    # print(p)
+    # print(A2)
+    st = -1
+    for r in range(m):
+        if not (A2[r, :exk].any()):
+            st = r
+            break
+    # print(st)
+    if st != -1:
+        B2 = A2[st:, exk:]
+        print(B2)
+        row, col = B2.shape
+        for r in range(row):
+            rel = ""
+            for j in range(col):
+                if B2[r, j] != 0:
+                    if rel != "":
+                        rel += " + "
+                    if B2[r, j] == 1:
+                        rel += dict_str[j + offset + exk]
+                    else:
+                        rel += str(B2[r, j]) + "*" + dict_str[j + offset + exk]
+            rel += " = 0"
+            Relations.append(rel)
+    return Relations
 
 
 if __name__ == "__main__":
     R = 7
-    K0 = [
-        [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
+    Guessed_key = [
+        # [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        # [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
         [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ]
-    X, K, M = Init(R, K0)
+    X, K, M = Init(R, Guessed_key)
+    K0 = K.copy()
+    print("Number of Known Key Bytes:", len(K0))
     print("Known Set: {", end=" ")
-    for k in K:
-        if k[2] == 0:
-            print("k_" + str(k[0]) + "[" + str(k[1]) + "],", end=" ")
-        if k[2] == 1:
-            print("S(k_" + str(k[0]) + "[" + str(k[1]) + "]),", end=" ")
+    for k in K0:
+        print(dict_str[dict_index[k]], end=", ")
     print("}")
-    # print(dic)
     # print(X)
     # print(K)
     # print(M.dtype)
     # print(M[0])
     K, M = Knowledge_propagation(X, K, M)
-    print("Known Set: {", end=" ")
+    m, p = M.shape
+    print("Unknown:", p - len(K))
+    print("Known:", len(K))
+    print("Extended Set: {", end=" ")
     for k in K:
-        if k[2] == 0:
-            print("k_" + str(k[0]) + "[" + str(k[1]) + "],", end=" ")
-        if k[2] == 1:
-            print("S(k_" + str(k[0]) + "[" + str(k[1]) + "]),", end=" ")
+        print(dict_str[dict_index[k]], end=", ")
     print("}")
-    print(len(X) - len(K), len(K))
     np.set_printoptions(threshold=np.inf, linewidth=np.inf)
     f = open("./Note/output.log", "w")
-    f.write(str(M))
-    f.close()
+    # f.write(str(M[:, : (len(X) - len(K))]))
+    for r in range(m):
+        if not (M[r, : p - len(K)].any()):
+            st = r
+            break
+    # print("st:", st)
+    f.write(str(M[st:, : p - len(K)]))
+    # print("rank of A2:", np.linalg.matrix_rank(A2))
+    A2 = M[st:, p - len(K) :]
+    # print(A2)
+    Relations = Relation_derivation(K0, K, A2, p - len(K))
+    print("Number of Relations:", len(Relations))
+    print("Relations Found:")
+    for rel in Relations:
+        print(rel)
+    # f.close()
