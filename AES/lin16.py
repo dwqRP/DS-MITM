@@ -373,18 +373,8 @@ def Relation_derivation(K0, K, A2, offset):
     return Relations
 
 
-if __name__ == "__main__":
-    R = 7
-    Guessed_key = [
-        [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-    ]
+def Key_relation_search(Guessed_key):
+    R = len(Guessed_key) - 1
     X, K, M = Init(R, Guessed_key)
     K0 = K.copy()
     print("Number of Known Key Bytes:", len(K0))
@@ -405,14 +395,14 @@ if __name__ == "__main__":
         print(dict_str[dict_index[k]], end=", ")
     print("}")
     np.set_printoptions(threshold=np.inf, linewidth=np.inf)
-    f = open("./Note/output.log", "w")
+    # f = open("./Note/output.log", "w")
     # f.write(str(M[:, : (len(X) - len(K))]))
     for r in range(m):
         if not (M[r, : p - len(K)].any()):
             st = r
             break
     # print("st:", st)
-    f.write(str(M[st:, : p - len(K)]))
+    # f.write(str(M[st:, : p - len(K)]))
     A2 = M[st:, p - len(K) :]
     print("rank of A2:", np.linalg.matrix_rank(A2))
     row_A2, col_A2 = A2.shape
@@ -423,4 +413,19 @@ if __name__ == "__main__":
     print("Relations Found:")
     for rel in Relations:
         print(rel)
+    return Relations
     # f.close()
+
+
+if __name__ == "__main__":
+    Guessed_key = [
+        [1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+    ]
+    Key_relation_search(Guessed_key)
